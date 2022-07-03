@@ -92,7 +92,7 @@ make_shadow(xcb_connection_t *c, const conv *kernel, double opacity, int width, 
 	}
 
 	unsigned char *data = ximage->data;
-	long sstride = ximage->stride;
+	long long sstride = ximage->stride;
 
 	// If the window body is smaller than the kernel, we do convolution directly
 	if (width < r * 2 && height < r * 2) {
@@ -100,7 +100,7 @@ make_shadow(xcb_connection_t *c, const conv *kernel, double opacity, int width, 
 			for (int x = 0; x < swidth; x++) {
 				double sum = sum_kernel_normalized(
 				    kernel, d - x - 1, d - y - 1, width, height);
-				data[y * sstride + x] = (uint8_t)(sum * 255.0);
+				data[y * sstride + x] = (uint8_t)(sum * 255.0 * opacity);
 			}
 		}
 		return ximage;
@@ -118,14 +118,14 @@ make_shadow(xcb_connection_t *c, const conv *kernel, double opacity, int width, 
 			for (int x = 0; x < r * 2; x++) {
 				double sum = sum_kernel_normalized(kernel, d - x - 1,
 				                                   d - y - 1, d, height) *
-				             255.0;
+				             255.0 * opacity;
 				data[y * sstride + x] = (uint8_t)sum;
 				data[y * sstride + swidth - x - 1] = (uint8_t)sum;
 			}
 		}
 		for (int y = 0; y < sheight; y++) {
-			double sum =
-			    sum_kernel_normalized(kernel, 0, d - y - 1, d, height) * 255.0;
+			double sum = sum_kernel_normalized(kernel, 0, d - y - 1, d, height) *
+			             255.0 * opacity;
 			memset(&data[y * sstride + r * 2], (uint8_t)sum,
 			       (size_t)(width - 2 * r));
 		}
@@ -137,14 +137,14 @@ make_shadow(xcb_connection_t *c, const conv *kernel, double opacity, int width, 
 			for (int x = 0; x < swidth; x++) {
 				double sum = sum_kernel_normalized(kernel, d - x - 1,
 				                                   d - y - 1, width, d) *
-				             255.0;
+				             255.0 * opacity;
 				data[y * sstride + x] = (uint8_t)sum;
 				data[(sheight - y - 1) * sstride + x] = (uint8_t)sum;
 			}
 		}
 		for (int x = 0; x < swidth; x++) {
-			double sum =
-			    sum_kernel_normalized(kernel, d - x - 1, 0, width, d) * 255.0;
+			double sum = sum_kernel_normalized(kernel, d - x - 1, 0, width, d) *
+			             255.0 * opacity;
 			for (int y = r * 2; y < height; y++) {
 				data[y * sstride + x] = (uint8_t)sum;
 			}
@@ -424,6 +424,54 @@ struct dual_kawase_params *generate_dual_kawase_params(void *args) {
 	params->expand = (1 << params->iterations) * 2 * (int)ceil(params->offset) + 1;
 
 	return params;
+}
+
+void *default_clone_image(backend_t *base attr_unused, const void *image_data,
+                          const region_t *reg_visible attr_unused) {
+	auto new_img = ccalloc(1, struct backend_image);
+	*new_img = *(struct backend_image *)image_data;
+	new_img->inner->refcount++;
+	return new_img;
+}
+
+bool default_set_image_property(backend_t *base attr_unused, enum image_properties op,
+                                void *image_data, void *arg) {
+	struct backend_image *tex = image_data;
+	int *iargs = arg;
+	bool *bargs = arg;
+	double *dargs = arg;
+	switch (op) {
+	case IMAGE_PROPERTY_INVERTED: tex->color_inverted = bargs[0]; break;
+	case IMAGE_PROPERTY_DIM_LEVEL: tex->dim = dargs[0]; break;
+	case IMAGE_PROPERTY_OPACITY: tex->opacity = dargs[0]; break;
+	case IMAGE_PROPERTY_EFFECTIVE_SIZE:
+		// texture is already set to repeat, so nothing else we need to do
+		tex->ewidth = iargs[0];
+		tex->eheight = iargs[1];
+		break;
+	case IMAGE_PROPERTY_CORNER_RADIUS: tex->corner_radius = dargs[0]; break;
+	case IMAGE_PROPERTY_MAX_BRIGHTNESS: tex->max_brightness = dargs[0]; break;
+	case IMAGE_PROPERTY_BORDER_WIDTH: tex->border_width = *(int *)arg; break;
+	}
+
+	return true;
+}
+
+bool default_is_image_transparent(backend_t *base attr_unused, void *image_data) {
+	struct backend_image *img = image_data;
+	return img->opacity < 1 || img->inner->has_alpha;
+}
+
+struct backend_image *default_new_backend_image(int w, int h) {
+	auto ret = ccalloc(1, struct backend_image);
+	ret->opacity = 1;
+	ret->dim = 0;
+	ret->max_brightness = 1;
+	ret->eheight = h;
+	ret->ewidth = w;
+	ret->color_inverted = false;
+	ret->corner_radius = 0;
+	return ret;
 }
 
 void init_backend_base(struct backend_base *base, session_t *ps) {

@@ -231,8 +231,8 @@ void win_get_region_noframe_local(const struct managed_win *w, region_t *res) {
 
 	int x = extents.left;
 	int y = extents.top;
-	int width = max2(w->g.width - (extents.left + extents.right), 0);
-	int height = max2(w->g.height - (extents.top + extents.bottom), 0);
+	int width = max2(w->widthb - (extents.left + extents.right), 0);
+	int height = max2(w->heightb - (extents.top + extents.bottom), 0);
 
 	pixman_region32_fini(res);
 	if (width > 0 && height > 0) {
@@ -246,8 +246,9 @@ gen_without_corners(win_get_region_noframe_local);
 
 void win_get_region_frame_local(const struct managed_win *w, region_t *res) {
 	const margin_t extents = win_calc_frame_extents(w);
-	auto outer_width = extents.left + extents.right + w->g.width;
-	auto outer_height = extents.top + extents.bottom + w->g.height;
+	auto outer_width = w->widthb;
+	auto outer_height = w->heightb;
+
 	pixman_region32_fini(res);
 	pixman_region32_init_rects(
 	    res,
@@ -957,13 +958,19 @@ static void win_determine_shadow(session_t *ps, struct managed_win *w) {
  * things.
  */
 void win_update_prop_shadow(session_t *ps, struct managed_win *w) {
-	long attr_shadow_old = w->prop_shadow;
+	long long attr_shadow_old = w->prop_shadow;
 
 	win_update_prop_shadow_raw(ps, w);
 
 	if (w->prop_shadow != attr_shadow_old) {
 		win_determine_shadow(ps, w);
 	}
+}
+
+static void win_determine_clip_shadow_above(session_t *ps, struct managed_win *w) {
+	bool should_crop = (ps->o.wintype_option[w->window_type].clip_shadow_above ||
+	                    c2_match(ps, w, ps->o.shadow_clip_list, NULL));
+	w->clip_shadow_above = should_crop;
 }
 
 static void win_set_invert_color(session_t *ps, struct managed_win *w, bool invert_color_new) {
@@ -1123,6 +1130,7 @@ void win_on_factor_change(session_t *ps, struct managed_win *w) {
 	win_update_focused(ps, w);
 
 	win_determine_shadow(ps, w);
+	win_determine_clip_shadow_above(ps, w);
 	win_determine_invert_color(ps, w);
 	win_determine_blur_background(ps, w);
 	win_determine_rounded_corners(ps, w);
@@ -1454,6 +1462,7 @@ struct win *fill_win(session_t *ps, struct win *w) {
 	    .shadow_image = NULL,
 	    .prev_trans = NULL,
 	    .shadow = false,
+	    .clip_shadow_above = false,
 	    .xinerama_scr = -1,
 	    .mode = WMODE_TRANS,
 	    .ever_damaged = false,

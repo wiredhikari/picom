@@ -43,9 +43,6 @@ OPTIONS
 *-D*, *--fade-delta*='MILLISECONDS'::
 	The time between steps in fade step, in milliseconds. (> 0, defaults to 10)
 
-*-m*, *--menu-opacity*='OPACITY'::
-	Default opacity for dropdown menus and popup menus. (0.0 - 1.0, defaults to 1.0)
-
 *-c*, *--shadow*::
 	Enabled client-side shadows on windows. Note desktop windows (windows with '_NET_WM_WINDOW_TYPE_DESKTOP') never get shadow, unless explicitly requested using the wintypes option.
 
@@ -62,7 +59,7 @@ OPTIONS
 	Opacity of window titlebars and borders. (0.1 - 1.0, disabled by default)
 
 *-b*, *--daemon*::
-	Daemonize process. Fork to background after initialization. Causes issues with certain (badly-written) drivers.
+	Daemonize process. Fork to background after initialization. This option can only be set from the command line, setting this in the configuration file will have no effect.
 
 *--log-level*::
 	Set the log level. Possible values are "TRACE", "DEBUG", "INFO", "WARN", "ERROR", in increasing level of importance. Case doesn't matter. If using the "TRACE" log level, it's better to log into a file using *--log-file*, since it can generate a huge stream of logs.
@@ -95,7 +92,7 @@ OPTIONS
 	Blue color value of shadow (0.0 - 1.0, defaults to 0).
 
 *--inactive-opacity-override*::
-	Let inactive opacity set by *-i* override the '_NET_WM_OPACITY' values of windows.
+	Let inactive opacity set by *-i* override the '_NET_WM_WINDOW_OPACITY' values of windows.
 
 *--active-opacity* 'OPACITY'::
 	Default opacity for active windows. (0.0 - 1.0, defaults to 1.0)
@@ -128,10 +125,7 @@ OPTIONS
 	Try to detect windows with rounded corners and don't consider them shaped windows. The accuracy is not very high, unfortunately.
 
 *--detect-client-opacity*::
-	Detect '_NET_WM_OPACITY' on client windows, useful for window managers not passing '_NET_WM_OPACITY' of client windows to frame windows.
-
-*--refresh-rate* 'REFRESH_RATE'::
-	Specify refresh rate of the screen. If not specified or 0, picom will try detecting this with X RandR extension.
+	Detect '_NET_WM_WINDOW_OPACITY' on client windows, useful for window managers not passing '_NET_WM_WINDOW_OPACITY' of client windows to frame windows.
 
 *--vsync*, *--no-vsync*::
 	Enable/disable VSync.
@@ -151,6 +145,9 @@ OPTIONS
 *--shadow-exclude* 'CONDITION'::
 	Specify a list of conditions of windows that should have no shadow.
 
+*--clip-shadow-above* 'CONDITION'::
+	Specify a list of conditions of windows that should have no shadow painted over, such as a dock window.
+
 *--fade-exclude* 'CONDITION'::
 	Specify a list of conditions of windows that should not be faded.
 
@@ -164,7 +161,7 @@ OPTIONS
 	Use 'WM_TRANSIENT_FOR' to group windows, and consider windows in the same group focused at the same time.
 
 *--detect-client-leader*::
-	Use 'WM_CLIENT_LEADER' to group windows, and consider windows in the same group focused at the same time. 'WM_TRANSIENT_FOR' has higher priority if *--detect-transient* is enabled, too.
+	Use 'WM_CLIENT_LEADER' to group windows, and consider windows in the same group focused at the same time. This usually means windows from the same application will be considered focused or unfocused at the same time.'WM_TRANSIENT_FOR' has higher priority if *--detect-transient* is enabled, too.
 
 *--blur-method*, *--blur-size*, *--blur-deviation*, *--blur-strength*::
 	Parameters for background blurring, see the *BLUR* section for more information.
@@ -362,7 +359,7 @@ Window-type-specific settings are exposed only in configuration file and has the
 ------------
 wintypes:
 {
-  WINDOW_TYPE = { fade = BOOL; shadow = BOOL; opacity = FLOAT; focus = BOOL; blur-background = BOOL; full-shadow = BOOL; redir-ignore = BOOL; };
+  WINDOW_TYPE = { fade = BOOL; shadow = BOOL; opacity = FLOAT; focus = BOOL; blur-background = BOOL; full-shadow = BOOL; clip-shadow-above = BOOL; redir-ignore = BOOL; };
 };
 ------------
 
@@ -384,6 +381,9 @@ Following per window-type options are available: ::
 
   full-shadow:::
     Controls whether shadow is drawn under the parts of the window that you normally won't be able to see. Useful when the window has parts of it transparent, and you want shadows in those areas.
+
+  clip-shadow-above:::
+    Controls wether shadows that would have been drawn above the window should be clipped. Useful for dock windows that should have no shadow painted on top.
 
   redir-ignore:::
     Controls whether this type of windows should cause screen to become redirected again after been unredirected. If you have *--unredir-if-possible* set, and doesn't want certain window to cause unnecessary screen redirection, you can set this to `true`.
@@ -442,16 +442,16 @@ EXAMPLES
 $ picom --config /dev/null
 ------------
 
-* Run picom with client-side shadow and fading, disable shadow on dock windows and drag-and-drop windows:
+* Run picom with client-side shadow and fading:
 +
 ------------
-$ picom -cCGf
+$ picom -cf
 ------------
 
 * Same thing as above, plus making inactive windows 80% transparent, making frame 80% transparent, don't fade on window open/close, and fork to background:
 +
 ------------
-$ picom -bcCGf -i 0.8 -e 0.8 --no-fading-openclose
+$ picom -bcf -i 0.8 -e 0.8 --no-fading-openclose
 ------------
 
 * Draw white shadows:

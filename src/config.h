@@ -45,6 +45,7 @@ typedef struct win_option_mask {
 	bool full_shadow : 1;
 	bool redir_ignore : 1;
 	bool opacity : 1;
+	bool clip_shadow_above : 1;
 } win_option_mask_t;
 
 typedef struct win_option {
@@ -55,6 +56,7 @@ typedef struct win_option {
 	bool full_shadow;
 	bool redir_ignore;
 	double opacity;
+	bool clip_shadow_above;
 } win_option_t;
 
 enum blur_method {
@@ -128,10 +130,6 @@ typedef struct options {
 	win_option_t wintype_option[NUM_WINTYPES];
 
 	// === VSync & software optimization ===
-	/// User-specified refresh rate.
-	int refresh_rate;
-	/// Whether to enable refresh-rate-based software optimization.
-	bool sw_opti;
 	/// VSync method to use;
 	bool vsync;
 	/// Whether to use glFinish() instead of glFlush() for (possibly) better
@@ -154,6 +152,8 @@ typedef struct options {
 	bool shadow_ignore_shaped;
 	/// Whether to crop shadow to the very Xinerama screen.
 	bool xinerama_shadow_crop;
+	/// Don't draw shadow over these windows. A linked list of conditions.
+	c2_lptr_t *shadow_clip_list;
 
 	// === Fading ===
 	/// How much to fade in in a single fading step.
@@ -171,7 +171,7 @@ typedef struct options {
 
 	// === Opacity ===
 	/// Default opacity for inactive windows.
-	/// 32-bit integer with the format of _NET_WM_OPACITY.
+	/// 32-bit integer with the format of _NET_WM_WINDOW_OPACITY.
 	double inactive_opacity;
 	/// Default opacity for inactive windows.
 	double active_opacity;
@@ -181,8 +181,8 @@ typedef struct options {
 	/// Frame opacity. Relative to window opacity, also affects shadow
 	/// opacity.
 	double frame_opacity;
-	/// Whether to detect _NET_WM_OPACITY on client windows. Used on window
-	/// managers that don't pass _NET_WM_OPACITY to frame windows.
+	/// Whether to detect _NET_WM_WINDOW_OPACITY on client windows. Used on window
+	/// managers that don't pass _NET_WM_WINDOW_OPACITY to frame windows.
 	bool detect_client_opacity;
 
 	// === Other window processing ===
